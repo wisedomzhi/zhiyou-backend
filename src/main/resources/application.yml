@@ -3,8 +3,8 @@ spring:
     name: zhiyou-backend
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: password
+    username: test
+    password: test
     url: jdbc:mysql://localhost:3306/zhiyou
 server:
   port: 8080
