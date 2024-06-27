@@ -13,6 +13,7 @@ import com.wisewind.zhiyou.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -62,6 +63,15 @@ public class UserController {
         List<User> users = userService.list(queryWrapper);
         List<User> list = users.stream().map(user -> userService.getSafetyUser(user)).collect(Collectors.toList());
         return ResultUtils.success(list);
+    }
+
+    @GetMapping("/search/tags")
+    public BaseResponse<List<User>> searchUserByTags(@RequestParam List<String> tags){
+        if(CollectionUtils.isEmpty(tags)){
+            throw new BusinessException(ErrorCode.PARAM_ERROR);
+        }
+        List<User> users = userService.getByTags(tags);
+        return ResultUtils.success(users);
     }
 
     @PostMapping("/delete")

@@ -65,4 +65,14 @@ class UserServiceTest {
         User user = userService.getById(1);
         assertNotNull(user);
     }
+
+    @Test
+    void testGson(){
+        Gson gson = new Gson();
+        List<String> tagList = new ArrayList<>();
+        tagList.add("java");
+        tagList.add("python");
+        String s = gson.toJson(tagList);
+        assertEquals(s, "[\"java\",\"python\"]");
+    }
 }
