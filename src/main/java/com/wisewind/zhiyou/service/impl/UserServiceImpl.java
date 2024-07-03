@@ -1,18 +1,22 @@
 package com.wisewind.zhiyou.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.wisewind.zhiyou.common.BaseResponse;
 import com.wisewind.zhiyou.common.ErrorCode;
+import com.wisewind.zhiyou.constant.UserConstant;
 import com.wisewind.zhiyou.exception.BusinessException;
 import com.wisewind.zhiyou.model.domain.User;
 import com.wisewind.zhiyou.service.UserService;
 import com.wisewind.zhiyou.mapper.UserMapper;
+import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
@@ -22,6 +26,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.wisewind.zhiyou.constant.UserConstant.ADMIN_ROLE;
 import static com.wisewind.zhiyou.constant.UserConstant.userLoginStatus;
 
 /**
@@ -33,6 +38,9 @@ import static com.wisewind.zhiyou.constant.UserConstant.userLoginStatus;
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         implements UserService {
+
+    @Resource
+    private UserMapper userMapper;
 
     public static final String SALT = "wisewind";
 
@@ -57,8 +65,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BusinessException(ErrorCode.PARAM_ERROR, "校验密码不正确！");
         }
 
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("userAccount", userAccount);
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getUserAccount, userAccount);
         long count = this.count(queryWrapper);
         if (count > 0) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "注册用户已存在！");
@@ -96,9 +104,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         //2.密码加密
         String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
 
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("userAccount", userAccount);
-        queryWrapper.eq("userPassword", encryptPassword);
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getUserAccount, userAccount);
+        queryWrapper.eq(User::getUserPassword, encryptPassword);
         User user = this.getOne(queryWrapper);
         if (user == null) {
             log.info("user login failed, account cannot match password!");
@@ -132,6 +140,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         handledUser.setCreateTime(user.getCreateTime());
         handledUser.setUpdateTime(user.getUpdateTime());
         handledUser.setTags(user.getTags());
+        handledUser.setUserProfile(user.getUserProfile());
         return handledUser;
     }
 
@@ -173,6 +182,37 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
         List<User> safetyUsers = users.stream().map(this::getSafetyUser).collect(Collectors.toList());
         return safetyUsers;
+    }
+
+    @Override
+    public int updateUser(User user, HttpServletRequest httpServletRequest) {
+        if(!(isAdmin(httpServletRequest) || isCurrentUser(httpServletRequest, user))){
+            throw new BusinessException(ErrorCode.NO_AUTH, "没有修改权限");
+        }
+        User oldUser = userMapper.selectById(user.getId());
+        if(oldUser == null){
+            throw new BusinessException(ErrorCode.NULL_ERROR, "不存在该用户！");
+        }
+        return userMapper.updateById(user);
+    }
+
+    public boolean isCurrentUser(HttpServletRequest httpServletRequest, User user){
+        if(httpServletRequest == null || user == null){
+            throw new BusinessException(ErrorCode.PARAM_ERROR);
+        }
+        User currentUser = (User)httpServletRequest.getSession().getAttribute(userLoginStatus);
+        if(currentUser == null){
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "当前无登录用户");
+        }
+        return currentUser.getId().equals(user.getId());
+    }
+
+    public boolean isAdmin(HttpServletRequest httpServletRequest){
+        if(httpServletRequest == null){
+            throw new BusinessException(ErrorCode.PARAM_ERROR);
+        }
+        User user = (User)httpServletRequest.getSession().getAttribute(UserConstant.userLoginStatus);
+        return user != null && user.getUserRole() == ADMIN_ROLE;
     }
 }
 

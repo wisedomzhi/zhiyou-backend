@@ -28,11 +28,13 @@ public class User implements Serializable {
     /**
      * 账号
      */
+    @TableField("user_account")
     private String userAccount;
 
     /**
      * 密码
      */
+    @TableField("user_password")
     private String userPassword;
 
     /**

@@ -1,10 +1,16 @@
 package com.wisewind.zhiyou.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.wisewind.zhiyou.common.ErrorCode;
+import com.wisewind.zhiyou.constant.UserConstant;
+import com.wisewind.zhiyou.exception.BusinessException;
 import com.wisewind.zhiyou.model.domain.User;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
+
+import static com.wisewind.zhiyou.constant.UserConstant.ADMIN_ROLE;
+import static com.wisewind.zhiyou.constant.UserConstant.userLoginStatus;
 
 /**
 * @author ffz
@@ -37,4 +43,10 @@ public interface UserService extends IService<User> {
     List<User> getByTags(List<String> tags);
 
     List<User> getByTagsMemo(List<String> tags);
+
+    int updateUser(User user, HttpServletRequest httpServletRequest);
+
+    boolean isCurrentUser(HttpServletRequest httpServletRequest, User user);
+
+    boolean isAdmin(HttpServletRequest httpServletRequest);
 }
