@@ -1,6 +1,7 @@
 package com.wisewind.zhiyou.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wisewind.zhiyou.common.BaseResponse;
 import com.wisewind.zhiyou.common.ErrorCode;
 import com.wisewind.zhiyou.common.ResultUtils;
@@ -119,6 +120,10 @@ public class UserController {
     }
 
 
-
+    @GetMapping("/recommend")
+    public BaseResponse<List<User>> recommendUsers(int page, int pageSize, HttpServletRequest httpServletRequest){
+        List<User> userList = userService.getRecommendUsers(page, pageSize, httpServletRequest);
+        return ResultUtils.success(userList);
+    }
 
 }

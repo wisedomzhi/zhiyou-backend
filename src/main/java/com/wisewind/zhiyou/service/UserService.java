@@ -46,7 +46,11 @@ public interface UserService extends IService<User> {
 
     int updateUser(User user, HttpServletRequest httpServletRequest);
 
+    List<User> getRecommendUsers(int page, int pageSize, HttpServletRequest httpServletRequest);
+
     boolean isCurrentUser(HttpServletRequest httpServletRequest, User user);
 
     boolean isAdmin(HttpServletRequest httpServletRequest);
+
+    User getCurrentUser(HttpServletRequest httpServletRequest);
 }

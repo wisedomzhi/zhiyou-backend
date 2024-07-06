@@ -2,10 +2,10 @@ package com.wisewind.zhiyou.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.wisewind.zhiyou.common.BaseResponse;
 import com.wisewind.zhiyou.common.ErrorCode;
 import com.wisewind.zhiyou.constant.UserConstant;
 import com.wisewind.zhiyou.exception.BusinessException;
@@ -17,11 +17,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -42,7 +44,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Resource
     private UserMapper userMapper;
 
+    @Autowired
+    private RedisTemplate redisTemplate;
+
     public static final String SALT = "wisewind";
+
+    private static String redisUserKey = "zhiyou:user:recommend:%s";
 
 
     @Override
@@ -189,18 +196,44 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if(!(isAdmin(httpServletRequest) || isCurrentUser(httpServletRequest, user))){
             throw new BusinessException(ErrorCode.NO_AUTH, "没有修改权限");
         }
+        //TODO 添加对要修改用户的校验，如果传入的修改用户属性都为空值，直接返回
         User oldUser = userMapper.selectById(user.getId());
         if(oldUser == null){
             throw new BusinessException(ErrorCode.NULL_ERROR, "不存在该用户！");
         }
+        String key = String.format(redisUserKey, oldUser.getId());
+        try {
+            redisTemplate.delete(key);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return userMapper.updateById(user);
+    }
+
+    @Override
+    public List<User> getRecommendUsers(int page, int pageSize, HttpServletRequest httpServletRequest){
+        User currentUser = getCurrentUser(httpServletRequest);
+        if(currentUser == null){
+            throw new BusinessException(ErrorCode.PARAM_ERROR,"无登录用户");
+        }
+        Long id = currentUser.getId();
+        String key = String.format(redisUserKey, id);
+        List<User> userList = (List<User>)redisTemplate.opsForValue().get(key);
+        if(userList != null){
+            return userList;
+        }
+        Page<User> pageResult = this.page(new Page<>(page, pageSize));
+        userList = pageResult.getRecords();
+        List<User> list = userList.stream().map(user -> this.getSafetyUser(user)).collect(Collectors.toList());
+        redisTemplate.opsForValue().set(key, list, 2, TimeUnit.HOURS);
+        return list;
     }
 
     public boolean isCurrentUser(HttpServletRequest httpServletRequest, User user){
         if(httpServletRequest == null || user == null){
             throw new BusinessException(ErrorCode.PARAM_ERROR);
         }
-        User currentUser = (User)httpServletRequest.getSession().getAttribute(userLoginStatus);
+        User currentUser = getCurrentUser(httpServletRequest);
         if(currentUser == null){
             throw new BusinessException(ErrorCode.PARAM_ERROR, "当前无登录用户");
         }
@@ -208,11 +241,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     public boolean isAdmin(HttpServletRequest httpServletRequest){
+        User currentUser = getCurrentUser(httpServletRequest);
+        return currentUser != null && currentUser.getUserRole() == ADMIN_ROLE;
+    }
+
+    @Override
+    public User getCurrentUser(HttpServletRequest httpServletRequest){
         if(httpServletRequest == null){
             throw new BusinessException(ErrorCode.PARAM_ERROR);
         }
         User user = (User)httpServletRequest.getSession().getAttribute(UserConstant.userLoginStatus);
-        return user != null && user.getUserRole() == ADMIN_ROLE;
+        return user;
     }
 }
 
