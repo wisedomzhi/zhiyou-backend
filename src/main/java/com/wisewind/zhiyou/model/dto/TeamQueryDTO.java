@@ -1,7 +1,5 @@
 package com.wisewind.zhiyou.model.dto;
 
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.wisewind.zhiyou.common.PageRequest;
 import lombok.Data;
 
@@ -23,6 +21,20 @@ public class TeamQueryDTO extends PageRequest {
      */
     private Integer teamStatus;
 
+    /**
+     * 队伍描述
+     */
+    private String teamDescription;
+
+    /**
+     * 队伍最大人数
+     */
+    private Integer maxNum;
+
+    /**
+     * 根据名称或描述进行查询
+     */
+    private String searchText;
 
 
 }

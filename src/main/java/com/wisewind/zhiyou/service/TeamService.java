@@ -2,7 +2,14 @@ package com.wisewind.zhiyou.service;
 
 import com.wisewind.zhiyou.model.domain.Team;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.wisewind.zhiyou.model.domain.User;
+import com.wisewind.zhiyou.model.dto.TeamQueryDTO;
+import com.wisewind.zhiyou.model.request.TeamJoinRequest;
+import com.wisewind.zhiyou.model.request.TeamUpdateRequest;
+import com.wisewind.zhiyou.model.vo.TeamUserVO;
 import jakarta.servlet.http.HttpServletRequest;
+
+import java.util.List;
 
 /**
 * @author ffz
@@ -12,4 +19,15 @@ import jakarta.servlet.http.HttpServletRequest;
 public interface TeamService extends IService<Team> {
 
      long addTeam(Team team, HttpServletRequest httpServletRequest);
+
+     /**
+      * 搜索队伍
+      * @param teamQueryDTO
+      * @return
+      */
+     List<TeamUserVO> listTeams(TeamQueryDTO teamQueryDTO, boolean isAdmin);
+
+     boolean updateTeam(TeamUpdateRequest teamUpdateRequest, User currentUser);
+
+     boolean joinTeam(TeamJoinRequest teamJoinRequest, User currentUser);
 }

@@ -1,9 +1,8 @@
 package com.wisewind.zhiyou.enumeration;
 
 public enum TeamStatus {
-
-    PRIVATE(0, "私有"),
-    PUBLIC(1, "公开"),
+    PUBLIC(0, "公开"),
+    PRIVATE(1, "私有"),
     SECRET(2, "加密");
 
 
@@ -32,5 +31,6 @@ public enum TeamStatus {
                 return teamStatus;
             }
         }
+        return null;
     }
 }
