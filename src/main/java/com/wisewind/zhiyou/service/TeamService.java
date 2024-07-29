@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.wisewind.zhiyou.model.domain.User;
 import com.wisewind.zhiyou.model.dto.TeamQueryDTO;
 import com.wisewind.zhiyou.model.request.TeamJoinRequest;
+import com.wisewind.zhiyou.model.request.TeamQuitRequest;
 import com.wisewind.zhiyou.model.request.TeamUpdateRequest;
 import com.wisewind.zhiyou.model.vo.TeamUserVO;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,4 +31,8 @@ public interface TeamService extends IService<Team> {
      boolean updateTeam(TeamUpdateRequest teamUpdateRequest, User currentUser);
 
      boolean joinTeam(TeamJoinRequest teamJoinRequest, User currentUser);
+
+    boolean quitTeam(TeamQuitRequest teamQuitRequest, User currentUser);
+
+     boolean deleteTeam(Long id, User currentUser);
 }

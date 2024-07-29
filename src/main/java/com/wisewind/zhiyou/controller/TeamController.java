@@ -9,7 +9,9 @@ import com.wisewind.zhiyou.exception.BusinessException;
 import com.wisewind.zhiyou.model.domain.Team;
 import com.wisewind.zhiyou.model.domain.User;
 import com.wisewind.zhiyou.model.dto.TeamQueryDTO;
+import com.wisewind.zhiyou.model.request.TeamAddRequest;
 import com.wisewind.zhiyou.model.request.TeamJoinRequest;
+import com.wisewind.zhiyou.model.request.TeamQuitRequest;
 import com.wisewind.zhiyou.model.request.TeamUpdateRequest;
 import com.wisewind.zhiyou.model.vo.TeamUserVO;
 import com.wisewind.zhiyou.service.TeamService;
@@ -33,10 +35,12 @@ public class TeamController {
     private UserService userService;
 
     @PostMapping("/add")
-    public BaseResponse<Long> add(@RequestBody Team team, HttpServletRequest httpServletRequest){
-        if(team == null){
+    public BaseResponse<Long> add(@RequestBody TeamAddRequest teamAddRequest, HttpServletRequest httpServletRequest){
+        if(teamAddRequest == null){
             throw new BusinessException(ErrorCode.PARAM_ERROR);
         }
+        Team team = new Team();
+        BeanUtils.copyProperties(teamAddRequest, team);
         long id = teamService.addTeam(team, httpServletRequest);
         if(id < 0){
             throw new BusinessException(ErrorCode.SYSTEM_ERROR);
@@ -45,12 +49,18 @@ public class TeamController {
     }
 
 
-    @DeleteMapping("/delete")
-    public BaseResponse<Boolean> delete(Long id){
+    /**
+     * 删除队伍
+     * @param id
+     * @return
+     */
+    @PostMapping("/delete")
+    public BaseResponse<Boolean> delete(@RequestBody Long id, HttpServletRequest httpServletRequest){
         if(id == null){
             throw new BusinessException(ErrorCode.PARAM_ERROR);
         }
-        boolean result = teamService.removeById(id);
+        User currentUser = userService.getCurrentUser(httpServletRequest);
+        boolean result = teamService.deleteTeam(id, currentUser);
         if(!result){
             throw new BusinessException(ErrorCode.SYSTEM_ERROR);
         }
@@ -106,6 +116,19 @@ public class TeamController {
             throw new BusinessException(ErrorCode.NO_AUTH);
         }
         boolean result = teamService.joinTeam(teamJoinRequest, currentUser);
+        return ResultUtils.success(result);
+    }
+
+    @PostMapping("/quit")
+    public  BaseResponse<Boolean> quitTeam(@RequestBody TeamQuitRequest teamQuitRequest, HttpServletRequest httpServletRequest){
+        if (teamQuitRequest == null){
+            throw new BusinessException(ErrorCode.PARAM_ERROR);
+        }
+        User currentUser = userService.getCurrentUser(httpServletRequest);
+        if(currentUser == null){
+            throw new BusinessException(ErrorCode.NO_AUTH);
+        }
+        boolean result = teamService.quitTeam(teamQuitRequest, currentUser);
         return ResultUtils.success(result);
     }
 }

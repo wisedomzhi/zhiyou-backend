@@ -12,6 +12,7 @@ import com.wisewind.zhiyou.model.domain.User;
 import com.wisewind.zhiyou.model.domain.UserTeam;
 import com.wisewind.zhiyou.model.dto.TeamQueryDTO;
 import com.wisewind.zhiyou.model.request.TeamJoinRequest;
+import com.wisewind.zhiyou.model.request.TeamQuitRequest;
 import com.wisewind.zhiyou.model.request.TeamUpdateRequest;
 import com.wisewind.zhiyou.model.vo.TeamUserVO;
 import com.wisewind.zhiyou.model.vo.UserVO;
@@ -45,7 +46,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     @Autowired
     private UserTeamService userTeamService;
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public long addTeam(Team team, HttpServletRequest httpServletRequest) {
         if(team == null || httpServletRequest == null){
             throw new BusinessException(ErrorCode.PARAM_ERROR, "请求参数为空");
@@ -55,6 +56,9 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             throw new BusinessException(ErrorCode.PARAM_ERROR, "未登录");
         }
         Long id = currentUser.getId();
+        if(!id.equals(team.getUserId())){
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "创建人只能是自己");
+        }
         int maxNum = team.getMaxNum();
         if(maxNum <= 1 || maxNum > 20){
             throw new BusinessException(ErrorCode.PARAM_ERROR, "队伍人数必须大于1小于等于20");
@@ -80,7 +84,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         }
         Date expireTime = team.getExpireTime();
         Date now = new Date();
-        if(expireTime.before(now)){
+        if(expireTime != null && expireTime.before(now)){
             throw new BusinessException(ErrorCode.PARAM_ERROR, "过期时间早于当前时间");
         }
         QueryWrapper<Team> queryWrapper = new QueryWrapper<>();
@@ -192,7 +196,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         return this.updateById(updateTeam);
     }
 
-    @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean joinTeam(TeamJoinRequest teamJoinRequest, User currentUser) {
         if (teamJoinRequest == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR);
@@ -208,7 +212,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         }
         // 最多只能加入5个队伍
         Long userId = currentUser.getId();
-        LambdaQueryWrapper<UserTeam> lambdaQueryWrapper = new LambdaQueryWrapper();
+        LambdaQueryWrapper<UserTeam> lambdaQueryWrapper = new LambdaQueryWrapper<>();
         lambdaQueryWrapper.eq(UserTeam::getUserId, userId);
         long count = userTeamService.count(lambdaQueryWrapper);
         if (count >= 5) {
@@ -254,6 +258,90 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         userTeam.setJoinTime(new Date());
 
         return userTeamService.save(userTeam);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public boolean quitTeam(TeamQuitRequest teamQuitRequest, User currentUser) {
+        if(teamQuitRequest == null){
+            throw new BusinessException(ErrorCode.PARAM_ERROR);
+        }
+        Long teamId = teamQuitRequest.getTeamId();
+        Team team = getTeamById(teamId);
+
+        //判断是否已经加入队伍
+
+        Long userId = currentUser.getId();
+        UserTeam userTeam = new UserTeam();
+        userTeam.setUserId(userId);
+        userTeam.setTeamId(teamId);
+
+        QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>(userTeam);
+
+        long count = userTeamService.count(queryWrapper);
+        if(count == 0){
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "未加入队伍");
+        }
+
+        LambdaQueryWrapper<UserTeam> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(UserTeam::getTeamId, teamId);
+        long teamJoinedNum = userTeamService.count(lambdaQueryWrapper);
+
+        // 如果队伍只剩一人，解散队伍
+        if(teamJoinedNum == 1){
+            this.removeById(teamId);
+        }else {
+            // 队伍至少还剩两人
+            // 是否为队长
+            if(team.getUserId().equals(userId)){
+                // user_team表中的id根据用户加入的时间（插入的顺序）递增
+                lambdaQueryWrapper.last("order by id asc limit 2");
+                List<UserTeam> userTeamList = userTeamService.list(lambdaQueryWrapper);
+                if(CollectionUtils.isEmpty(userTeamList) || userTeamList.size() < 2){
+                    throw new BusinessException(ErrorCode.SYSTEM_ERROR);
+                }
+
+                UserTeam nextUserTeam = userTeamList.get(1);
+                Long nextTeamLeaderId = nextUserTeam.getUserId();
+                team.setUserId(nextTeamLeaderId);
+                boolean result = this.updateById(team);
+                if(!result){
+                    throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更新队长失败");
+                }
+
+            }
+        }
+
+        return userTeamService.remove(queryWrapper);
+    }
+
+    private Team getTeamById(Long teamId) {
+        if(teamId == null || teamId <= 0){
+            throw new BusinessException(ErrorCode.PARAM_ERROR);
+        }
+
+        Team team = this.getById(teamId);
+        if(team == null){
+            throw new BusinessException(ErrorCode.PARAM_ERROR);
+        }
+        return team;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public boolean deleteTeam(Long id, User currentUser) {
+        Team team = getTeamById(id);
+        Long teamId = team.getId();
+
+        if(!team.getUserId().equals(currentUser.getId())){
+            throw new BusinessException(ErrorCode.NO_AUTH, "只有队长可以解散队伍");
+        }
+
+        // 移除用户与队伍的关联关系
+        LambdaQueryWrapper<UserTeam> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(UserTeam::getTeamId, teamId);
+        userTeamService.remove(lambdaQueryWrapper);
+
+        // 移除队伍
+        return this.removeById(teamId);
     }
 }
 
