@@ -26,7 +26,7 @@ public interface TeamService extends IService<Team> {
       * @param teamQueryDTO
       * @return
       */
-     List<TeamUserVO> listTeams(TeamQueryDTO teamQueryDTO, boolean isAdmin);
+     List<TeamUserVO> listTeams(TeamQueryDTO teamQueryDTO, boolean isAdmin, User currentUser);
 
      boolean updateTeam(TeamUpdateRequest teamUpdateRequest, User currentUser);
 

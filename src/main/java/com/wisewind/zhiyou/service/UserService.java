@@ -53,4 +53,6 @@ public interface UserService extends IService<User> {
     boolean isAdmin(HttpServletRequest httpServletRequest);
 
     User getCurrentUser(HttpServletRequest httpServletRequest);
+
+    List<User> matchUsers(int num, HttpServletRequest httpServletRequest);
 }

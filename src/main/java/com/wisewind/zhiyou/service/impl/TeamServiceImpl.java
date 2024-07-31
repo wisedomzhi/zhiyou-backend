@@ -2,6 +2,7 @@ package com.wisewind.zhiyou.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wisewind.zhiyou.common.ErrorCode;
 import com.wisewind.zhiyou.constant.UserConstant;
@@ -31,6 +32,7 @@ import org.springframework.util.CollectionUtils;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
 * @author ffz
@@ -53,12 +55,10 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         }
         User currentUser = userService.getCurrentUser(httpServletRequest);
         if(currentUser == null){
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "未登录");
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
         }
         Long id = currentUser.getId();
-        if(!id.equals(team.getUserId())){
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "创建人只能是自己");
-        }
+        team.setUserId(id);
         int maxNum = team.getMaxNum();
         if(maxNum <= 1 || maxNum > 20){
             throw new BusinessException(ErrorCode.PARAM_ERROR, "队伍人数必须大于1小于等于20");
@@ -109,12 +109,20 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     }
 
     @Override
-    public List<TeamUserVO> listTeams(TeamQueryDTO teamQueryDTO, boolean isAdmin) {
+    public List<TeamUserVO> listTeams(TeamQueryDTO teamQueryDTO, boolean isAdmin, User currentUser) {
         LambdaQueryWrapper<Team> queryWrapper = new LambdaQueryWrapper<>();
         if(teamQueryDTO != null){
             Long id = teamQueryDTO.getId();
             if(id != null && id > 0){
                 queryWrapper.eq(Team::getId, id);
+            }
+            Long userId = teamQueryDTO.getUserId();
+            if(userId != null && userId > 0){
+                queryWrapper.eq(Team::getUserId, userId);
+            }
+            List<Long> teamIds = teamQueryDTO.getTeamIds();
+            if(!CollectionUtils.isEmpty(teamIds)){
+                queryWrapper.in(Team::getId, teamIds);
             }
             String teamName = teamQueryDTO.getTeamName();
             if(StringUtils.isNotBlank(teamName)){
@@ -122,13 +130,18 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             }
             Integer teamStatus = teamQueryDTO.getTeamStatus();
             TeamStatus status = TeamStatus.getByValue(teamStatus);
-            if(status == null){
+            if(status == null && !isAdmin){
                 status = TeamStatus.PUBLIC;
             }
-            if(!isAdmin && !status.equals(TeamStatus.PUBLIC)){
+            if(!isAdmin && status.equals(TeamStatus.PRIVATE) && currentUser == null){
                 throw new BusinessException(ErrorCode.NO_AUTH);
             }
-            queryWrapper.eq(Team::getTeamStatus, status.getValue());
+            if(status != null){
+                queryWrapper.eq(Team::getTeamStatus, status.getValue());
+                if(status.equals(TeamStatus.PRIVATE)){
+                    queryWrapper.eq(Team::getUserId, currentUser.getId());
+                }
+            }
 
             String teamDescription = teamQueryDTO.getTeamDescription();
             if(StringUtils.isNotBlank(teamDescription)){
@@ -145,10 +158,17 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         }
         //过滤已过期队伍
         queryWrapper.and(qw->qw.gt(Team::getExpireTime, new Date()).or().isNull(Team::getExpireTime));
-        List<Team> list = this.list(queryWrapper);
+        Page<Team> page = new Page<>(teamQueryDTO.getPage(), teamQueryDTO.getPageSize());
+        List<Team> list = this.list(page, queryWrapper);
         if(CollectionUtils.isEmpty(list)){
             return new ArrayList<>();
         }
+
+        // 关联查询当前用户加入了哪些队伍
+        LambdaQueryWrapper<UserTeam> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(UserTeam::getUserId, currentUser.getId());
+        List<UserTeam> userTeamList = userTeamService.list(lambdaQueryWrapper);
+        List<Long> teamIdList = userTeamList.stream().map(UserTeam::getTeamId).toList();
 
         List<TeamUserVO> teamUserVOList = new ArrayList<>();
         for (Team team : list) {
@@ -156,14 +176,29 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             if(userId == null){
                 continue;
             }
+            // 关联查询每个队伍有哪些用户
+            lambdaQueryWrapper = new LambdaQueryWrapper<>();
+            lambdaQueryWrapper.eq(UserTeam::getTeamId, team.getId());
+            List<Long> teamMemberIds = userTeamService.list(lambdaQueryWrapper).stream().map(UserTeam::getUserId).toList();
+            LambdaQueryWrapper<User> userQueryMapper = new LambdaQueryWrapper<>();
+            if(!CollectionUtils.isEmpty(teamMemberIds)){
+                userQueryMapper.in(User::getId, teamMemberIds);
+            }
+            List<UserVO> teamMembers = userService.list(userQueryMapper).stream().map(user -> {
+                UserVO userVO = new UserVO();
+                BeanUtils.copyProperties(user, userVO);
+                return userVO;
+            }).toList();
             User user = userService.getById(userId);
             TeamUserVO teamUserVO = new TeamUserVO();
+            teamUserVO.setJoinedUser(teamMembers);
             BeanUtils.copyProperties(team, teamUserVO);
             if(user != null){
                 UserVO userVO = new UserVO();
                 BeanUtils.copyProperties(user, userVO);
                 teamUserVO.setCreatUser(userVO);
             }
+            teamUserVO.setHasJoin(teamIdList.contains(team.getId()));
             teamUserVOList.add(teamUserVO);
         }
         return teamUserVOList;

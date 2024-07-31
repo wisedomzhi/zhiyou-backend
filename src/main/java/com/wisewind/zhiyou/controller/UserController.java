@@ -102,7 +102,7 @@ public class UserController {
     public BaseResponse<User> getCurrentUser(HttpServletRequest httpServletRequest){
         User user = (User)httpServletRequest.getSession().getAttribute(UserConstant.userLoginStatus);
         if(user == null){
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "当前无已登录用户！");
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
         }
         Long id = user.getId();
         user = userService.getById(id);
@@ -123,6 +123,15 @@ public class UserController {
     @GetMapping("/recommend")
     public BaseResponse<List<User>> recommendUsers(int page, int pageSize, HttpServletRequest httpServletRequest){
         List<User> userList = userService.getRecommendUsers(page, pageSize, httpServletRequest);
+        return ResultUtils.success(userList);
+    }
+
+    @GetMapping("/match")
+    public BaseResponse<List<User>> matchUsers(int num, HttpServletRequest httpServletRequest){
+        if(num < 0 || num > 20){
+            throw new BusinessException(ErrorCode.PARAM_ERROR);
+        }
+        List<User> userList = userService.matchUsers(num, httpServletRequest);
         return ResultUtils.success(userList);
     }
 

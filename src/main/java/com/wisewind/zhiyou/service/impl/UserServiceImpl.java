@@ -12,10 +12,13 @@ import com.wisewind.zhiyou.exception.BusinessException;
 import com.wisewind.zhiyou.model.domain.User;
 import com.wisewind.zhiyou.service.UserService;
 import com.wisewind.zhiyou.mapper.UserMapper;
+import com.wisewind.zhiyou.utils.AlgorithmUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -214,7 +217,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     public List<User> getRecommendUsers(int page, int pageSize, HttpServletRequest httpServletRequest){
         User currentUser = getCurrentUser(httpServletRequest);
         if(currentUser == null){
-            throw new BusinessException(ErrorCode.PARAM_ERROR,"无登录用户");
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
         }
         Long id = currentUser.getId();
         String key = String.format(redisUserKey, id);
@@ -235,7 +238,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         User currentUser = getCurrentUser(httpServletRequest);
         if(currentUser == null){
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "当前无登录用户");
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
         }
         return currentUser.getId().equals(user.getId());
     }
@@ -252,6 +255,69 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         User user = (User)httpServletRequest.getSession().getAttribute(UserConstant.userLoginStatus);
         return user;
+    }
+
+    @Override
+    public List<User> matchUsers(int num, HttpServletRequest httpServletRequest) {
+        LambdaQueryWrapper<User> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.select(User::getId, User::getTags);
+        lambdaQueryWrapper.isNotNull(User::getTags);
+        List<User> userList = this.list(lambdaQueryWrapper);
+        User currentUser = getCurrentUser(httpServletRequest);
+        if(currentUser == null){
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }
+        String tags = currentUser.getTags();
+        Gson gson = new Gson();
+        List<String> currentTagList = gson.fromJson(tags, new TypeToken<List<String>>() {
+        }.getType());
+
+        PriorityQueue<Pair<User, Integer>> priorityQueue = new PriorityQueue<>(new Comparator<Pair<User, Integer>>() {
+            @Override
+            public int compare(Pair<User, Integer> o1, Pair<User, Integer> o2) {
+                return o2.getValue() - o1.getValue();
+            }
+        });
+        for (int i = 0; i < userList.size(); i++) {
+            User user = userList.get(i);
+            String userTags = user.getTags();
+            if(StringUtils.isBlank(userTags) || user.getId().equals(currentUser.getId())){
+                continue;
+            }
+            List<String> targetTagList = gson.fromJson(userTags, new TypeToken<List<String>>() {
+            }.getType());
+
+            int score = AlgorithmUtil.minDistance4Tags(currentTagList, targetTagList);
+            if(priorityQueue.size() < num){
+                priorityQueue.offer(new ImmutablePair<>(user, score));
+            }else{
+                Pair<User, Integer> pair = priorityQueue.peek();
+                if(pair != null && score < pair.getValue()){
+                    priorityQueue.poll();
+                    priorityQueue.offer(new ImmutablePair<>(user, score));
+                }
+            }
+        }
+        List<Long> matchedUserIds = new ArrayList<>();
+        while (!priorityQueue.isEmpty()){
+            Pair<User, Integer> pair = priorityQueue.poll();
+            matchedUserIds.add(pair.getKey().getId());
+        }
+        Collections.reverse(matchedUserIds);
+        StringBuilder sb = new StringBuilder();
+        sb.append("order by field(id,");
+        for (int i = 0; i < matchedUserIds.size(); i++) {
+            if(i == 0){
+                sb.append(matchedUserIds.get(i));
+            }else {
+                sb.append(",").append(matchedUserIds.get(i));
+            }
+        }
+        sb.append(")");
+        lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.in(User::getId, matchedUserIds).last(sb.toString());
+        List<User> matchedUsers = this.list(lambdaQueryWrapper);
+        return matchedUsers;
     }
 }
 

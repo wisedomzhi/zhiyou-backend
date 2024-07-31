@@ -32,10 +32,6 @@ public class TeamAddRequest {
      */
     private Date expireTime;
 
-    /**
-     * 队伍创建人
-     */
-    private Long userId;
 
     /**
      * 队伍状态 0-公开， 1-私有， 2-加密

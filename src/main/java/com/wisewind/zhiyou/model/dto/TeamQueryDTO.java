@@ -4,11 +4,22 @@ import com.wisewind.zhiyou.common.PageRequest;
 import lombok.Data;
 
 import java.util.Date;
+import java.util.List;
 
 @Data
 public class TeamQueryDTO extends PageRequest {
 
     private Long id;
+
+    /**
+     * 队伍创建人
+     */
+    private Long userId;
+
+    /**
+     * 已经加入的队伍id
+     */
+    private List<Long> teamIds;
 
     /**
      * 队伍名
