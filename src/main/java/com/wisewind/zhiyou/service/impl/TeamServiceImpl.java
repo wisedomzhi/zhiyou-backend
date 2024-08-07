@@ -196,7 +196,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             if(user != null){
                 UserVO userVO = new UserVO();
                 BeanUtils.copyProperties(user, userVO);
-                teamUserVO.setCreatUser(userVO);
+                teamUserVO.setCreateUser(userVO);
             }
             teamUserVO.setHasJoin(teamIdList.contains(team.getId()));
             teamUserVOList.add(teamUserVO);
@@ -221,7 +221,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             throw new BusinessException(ErrorCode.NO_AUTH);
         }
         TeamStatus status = TeamStatus.getByValue(teamUpdateRequest.getTeamStatus());
-        if(status.equals(TeamStatus.SECRET)){
+        if(status != null && status.equals(TeamStatus.SECRET)){
             if (!TeamStatus.getByValue(oldTeam.getTeamStatus()).equals(TeamStatus.SECRET) && StringUtils.isBlank(teamUpdateRequest.getTeamPassword())) {
                 throw new BusinessException(ErrorCode.PARAM_ERROR,"加密房间必须设置密码");
             }

@@ -44,6 +44,20 @@
             <artifactId>redisson</artifactId>
             <version>3.32.0</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-websocket -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+        <!--  aliyun oss  -->
+        <!-- https://mvnrepository.com/artifact/com.aliyun.oss/aliyun-sdk-oss -->
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+            <version>3.17.1</version>
+        </dependency>
+
+
 
 
         <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
@@ -154,17 +168,10 @@
                     <include>**/*.xml</include>
                     <include>**/*.properties</include>
                     <include>META-INF/**</include>
+                    <include>**/banner.txt</include>
                 </includes>
             </resource>
 
-            <resource>
-                <directory>src/main/resources</directory>
-                <filtering>false</filtering>
-                <includes>
-                    <include>static/**</include>
-                    <include>page/**</include>
-                </includes>
-            </resource>
         </resources>
 
     </build>
@@ -187,13 +194,6 @@
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
-        </profile>
-        <profile>
-            <!-- 测试环境 -->
-            <id>test</id>
-            <properties>
-                <profiles.active>test</profiles.active>
-            </properties>
         </profile>
     </profiles>
 

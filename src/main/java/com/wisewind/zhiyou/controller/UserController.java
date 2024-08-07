@@ -12,6 +12,7 @@ import com.wisewind.zhiyou.model.request.UserLoginRequest;
 import com.wisewind.zhiyou.model.request.UserRegisterRequest;
 import com.wisewind.zhiyou.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.CollectionUtils;
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 
 import static com.wisewind.zhiyou.constant.UserConstant.ADMIN_ROLE;
 
+@Slf4j
 @RequestMapping("/user")
 @RestController
 public class UserController {
@@ -30,14 +32,15 @@ public class UserController {
 
     @PostMapping("/register")
     public BaseResponse<Long> userRegister(@RequestBody UserRegisterRequest userRegisterRequest){
+        String username = userRegisterRequest.getUsername();
         String userAccount = userRegisterRequest.getUserAccount();
         String userPassword = userRegisterRequest.getUserPassword();
         String checkPassword = userRegisterRequest.getCheckPassword();
 
-        if(StringUtils.isAnyEmpty(userAccount, userPassword, checkPassword)){
+        if(StringUtils.isAnyEmpty(username, userAccount, userPassword, checkPassword)){
             throw new BusinessException(ErrorCode.NULL_ERROR, "用户注册信息存在空值！");
         }
-        long id = userService.userRegister(userAccount, userPassword, checkPassword);
+        long id = userService.userRegister(username, userAccount, userPassword, checkPassword);
         return ResultUtils.success(id);
     }
 

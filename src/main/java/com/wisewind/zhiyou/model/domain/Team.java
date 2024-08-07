@@ -4,8 +4,6 @@ import com.baomidou.mybatisplus.annotation.*;
 
 import java.io.Serializable;
 import java.util.Date;
-
-import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 /**
@@ -72,6 +70,11 @@ public class Team implements Serializable {
      */
     @TableLogic
     private Integer isDelete;
+
+    /**
+     * 队伍头像
+     */
+    private String teamAvatarUrl;
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;

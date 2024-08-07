@@ -56,8 +56,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
 
     @Override
-    public long userRegister(String userAccount, String userPassword, String checkPassword) {
-        if (StringUtils.isAnyEmpty(userAccount, userPassword, checkPassword)) {
+    public long userRegister(String username, String userAccount, String userPassword, String checkPassword) {
+        if (StringUtils.isAnyEmpty(username, userAccount, userPassword, checkPassword)) {
             throw new BusinessException(ErrorCode.NULL_ERROR, "注册信息存在空值！");
         }
 
@@ -86,6 +86,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
 
         User user = new User();
+        user.setUsername(username);
         user.setUserAccount(userAccount);
         user.setUserPassword(encryptPassword);
         boolean result = this.save(user);
@@ -225,7 +226,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if(userList != null){
             return userList;
         }
-        Page<User> pageResult = this.page(new Page<>(page, pageSize));
+        LambdaQueryWrapper<User> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.orderByDesc(User::getUpdateTime);
+        Page<User> pageResult = this.page(new Page<>(page, pageSize), lambdaQueryWrapper);
         userList = pageResult.getRecords();
         List<User> list = userList.stream().map(user -> this.getSafetyUser(user)).collect(Collectors.toList());
         redisTemplate.opsForValue().set(key, list, 2, TimeUnit.HOURS);

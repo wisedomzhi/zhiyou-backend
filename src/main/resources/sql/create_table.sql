@@ -22,7 +22,6 @@ create table user
     comment '用户';
 
 
-# 创建队伍表
 create table team
 (
     id               bigint auto_increment comment 'id
@@ -37,17 +36,16 @@ create table team
     team_status      int       default 0                 null comment '队伍状态 0-公开， 1-私有， 2-加密',
     create_time      timestamp default CURRENT_TIMESTAMP null comment '创建时间',
     update_time      timestamp default CURRENT_TIMESTAMP null comment '更新时间',
-    is_delete        tinyint   default 0                 not null comment '是否删除'
+    is_delete        tinyint   default 0                 not null comment '是否删除',
+    team_avatar_url  varchar(512)                        null comment '队伍头像'
 )
     comment '队伍';
-
 # 创建用户队伍关系表
 create table user_team
 (
     id          bigint auto_increment comment 'id
 '
         primary key,
-
     user_id     bigint                              null comment '用户id',
     team_id     bigint                              null comment '队伍id',
     join_time   timestamp                           null comment '加入队伍时间',
@@ -56,3 +54,38 @@ create table user_team
     is_delete   tinyint   default 0                 not null comment '是否删除'
 )
     comment '用户队伍关系表';
+
+# 创建标签表
+create table tag
+(
+    id          bigint                             not null
+        primary key,
+    tag_name    varchar(256)                       not null comment '标签名',
+    parent_id   bigint                             null comment '父标签id',
+    is_parent   tinyint                            not null comment '是否为父标签',
+    create_time datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    update_time datetime default CURRENT_TIMESTAMP not null comment '更新时间',
+    is_delete   tinyint  default 0                 null comment '是否删除
+0-未删除 1-删除',
+    constraint idx_tag_name
+        unique (tag_name),
+    constraint tag_name
+        unique (tag_name)
+)
+    comment '标签表';
+
+
+create table chat
+(
+    id          bigint auto_increment comment '聊天记录id'
+        primary key,
+    from_id     bigint                                  not null comment '发送消息id',
+    to_id       bigint                                  null comment '接收消息id',
+    chat_text   varchar(512) collate utf8mb4_unicode_ci null,
+    chat_type   tinyint                                 not null comment '聊天类型 1-私聊 2-群聊',
+    create_time datetime default CURRENT_TIMESTAMP      null comment '创建时间',
+    update_time datetime default CURRENT_TIMESTAMP      null,
+    team_id     bigint                                  null,
+    is_delete   tinyint  default 0                      null comment '逻辑删除 1-删除'
+)
+    comment '聊天消息表';
